@@ -282,7 +282,7 @@ def compute_all_metrics(clf, x, y, names):
                          accuracy(clf, x[name], y[name], name=None, print_flag=False),
                          precision_score(y[name], y_p, pos_label=2),
                          recall_score(y[name], y_p, pos_label=2),
-                         f1_score(y[name], y_p),
+                         f1_score(y[name], y_p, pos_label=2),
                          sensitivity, 
                          specificity, 
                          ratio]
