@@ -15,7 +15,7 @@ def load_data(data_dir):
                          sheet_name='_20191028_committee_reviews_nlp', engine='openpyxl')
 
 
-def concatenate_feature_columns(df, columns=None, remove_nl=False):
+def concatenate_feature_columns(df, columns=None, remove_nl=True):
 
     if columns is None:
         # create column with concatenation of all columns for any case,

@@ -248,10 +248,17 @@ def plot_calibration_curve_easy_hard(calibrated_clf,
 
 def specificity_sensitivity(y_true, y_pred):
 
-    tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
-    specificity = tn / (tn+fp)
-    sensitivity = tp / (tp + fn)
-    ratio = fp / fn
+    actual_pos = y_true == 2
+    actual_neg = y_true == 1
+    
+    true_pos = (y_pred == 2) & (actual_pos)
+    false_pos = (y_pred == 2) & (actual_neg)
+    true_neg = (y_pred == 1) & (actual_neg)
+    false_neg = (y_pred == 1) & (actual_pos)
+    
+    sensitivity = np.sum(true_pos) / np.sum(actual_pos)
+    specificity = np.sum(true_neg) / np.sum(actual_neg)
+    ratio = np.sum(false_pos) / np.sum(false_neg)
 
     return sensitivity, specificity, ratio
 
@@ -273,8 +280,8 @@ def compute_all_metrics(clf, x, y, names):
 
         results[name] = [roc_auc_score(y[name], y_pred),
                          accuracy(clf, x[name], y[name], name=None, print_flag=False),
-                         precision_score(y[name], y_p),
-                         recall_score(y[name], y_p),
+                         precision_score(y[name], y_p, pos_label=2),
+                         recall_score(y[name], y_p, pos_label=2),
                          f1_score(y[name], y_p),
                          sensitivity, 
                          specificity, 
