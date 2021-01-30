@@ -243,6 +243,7 @@ def plot_calibration_curve_easy_hard(calibrated_clf,
         ax2.set_ylabel("Normalised Count")
         ax2.legend(loc="upper center", ncol=2)
 
+        plt.tight_layout()
         plt.savefig('calibration_rf_easy_hard_%d_bins.png' % bins)
 
 

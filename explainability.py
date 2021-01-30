@@ -86,23 +86,20 @@ def get_ti_feature_contributions_average(contributions, grid_search_rf):
 
     return result
 
-def get_lime_explanation_instance(grid_search_clf, documents, index_to_explain, ns=500):
+def get_lime_explanation_instance(grid_search_clf, data, index_to_explain, ns=500):
     
-    X = grid_search_clf.best_estimator_['vect'].fit_transform(documents).toarray()
+    X = grid_search_clf.best_estimator_['vect'].fit_transform(data).toarray()
     X = grid_search_clf.best_estimator_['tfidf'].fit_transform(X).toarray()
 
-    X_train_L, X_test_L = train_test_split(
-        X, test_size=TEST_SIZE, random_state=RANDOM_STATE
-    )
     lime = fatf_surrogates.TabularBlimeyLime(
-        X_train_L,
+        X,
         grid_search_clf.best_estimator_['clf'],
         feature_names=grid_search_clf.best_estimator_['vect'].get_feature_names(),
         class_names=['np', 'pc']
     )
 
     lime_explanation = lime.explain_instance(
-        X_train_L[index_to_explain, :], samples_number=ns
+        X[index_to_explain, :], samples_number=ns
     )
 
     result = pd.DataFrame()
@@ -116,16 +113,13 @@ def get_lime_explanation_instance(grid_search_clf, documents, index_to_explain, 
 
     return result
 
-def get_lime_explanation_average(grid_search_clf, documents, ns=500):
+def get_lime_explanation_average(grid_search_clf, data, ns=500):
     
-    X = grid_search_clf.best_estimator_['vect'].fit_transform(documents).toarray()
+    X = grid_search_clf.best_estimator_['vect'].fit_transform(data).toarray()
     X = grid_search_clf.best_estimator_['tfidf'].fit_transform(X).toarray()
 
-    X_train_L, X_test_L = train_test_split(
-        X, test_size=TEST_SIZE, random_state=RANDOM_STATE
-    )
     lime = fatf_surrogates.TabularBlimeyLime(
-        X_train_L,
+        X,
         grid_search_clf.best_estimator_['clf'],
         feature_names=grid_search_clf.best_estimator_['vect'].get_feature_names(),
         class_names=['np', 'pc']
@@ -135,37 +129,34 @@ def get_lime_explanation_average(grid_search_clf, documents, ns=500):
     result['feature'] = grid_search_clf.best_estimator_['vect'].get_feature_names()
     average_contribution = np.zeros(len(result.feature))
 
-    for i in range(len(X_train_L)):
+    for i in range(len(X)):
 
         index_to_explain = i
         lime_explanation = lime.explain_instance(
-            X_train_L[index_to_explain, :], samples_number=ns
+            X[index_to_explain, :], samples_number=ns
         )
         for ki, key in enumerate(lime_explanation['pc'].keys()):
             average_contribution[ki] += lime_explanation['pc'][key] 
 
 
-    result['contribution'] = average_contribution / len(X_train_L)
+    result['contribution'] = average_contribution / len(X)
     result['magnitude'] = [np.abs(c) for c in result['contribution']]
     result.sort_values('magnitude', ascending=False, inplace=True)
     result['rank_lime'] = range(len(result))
 
     return result
 
-def get_shap_value_average(grid_search_clf, documents):
+def get_shap_value_average(grid_search_clf, data):
 
-    X = grid_search_clf.best_estimator_['vect'].fit_transform(documents).toarray()
+    X = grid_search_clf.best_estimator_['vect'].fit_transform(data).toarray()
     X = grid_search_clf.best_estimator_['tfidf'].fit_transform(X).toarray()
 
     features = grid_search_clf.best_estimator_['vect'].get_feature_names()
 
-    X_train_L, X_test_L = train_test_split(
-        X, test_size=TEST_SIZE, random_state=RANDOM_STATE
-    )
     X_train_df = pd.DataFrame()
 
     for i, fi in enumerate(features):
-        X_train_df[fi] = X_train_L[:,i]
+        X_train_df[fi] = X[:,i]
 
     explainer = shap.Explainer(grid_search_clf.best_estimator_['clf'])
     shap_values = explainer(X_train_df)
