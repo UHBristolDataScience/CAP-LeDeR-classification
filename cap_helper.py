@@ -2,8 +2,6 @@ import pandas as pd
 import numpy as np
 import re
 
-DATA_DIR = '../data/'
-
 """
 Notes on time conversion:
 Where days are months are missing from the date it defaults to 1st day/month. So times before DOD will be overestimated. One option would be to use years rather than months.
@@ -11,13 +9,13 @@ Probably missing some patterns below, but this should cover most cases (notably 
 """
 
 
-def load_data():
+def load_data(data_dir):
 
-    return pd.read_excel(DATA_DIR + '20191028_committee_reviews_nlp_code.xlsx',
-                         sheet_name='_20191028_committee_reviews_nlp')
+    return pd.read_excel(data_dir + '20191028_committee_reviews_nlp_code.xlsx',
+                         sheet_name='_20191028_committee_reviews_nlp', engine='openpyxl')
 
 
-def concatenate_feature_columns(df, columns=None):
+def concatenate_feature_columns(df, columns=None, remove_nl=True):
 
     if columns is None:
         # create column with concatenation of all columns for any case,
@@ -29,13 +27,18 @@ def concatenate_feature_columns(df, columns=None):
         cols = columns
 
     df['combined'] = df[cols].apply(lambda row: ' '.join(row.values.astype(str)), axis=1)
+    df['combined'] = df['combined'].replace({'nan': ''}, regex=True)
+
+    if remove_nl:
+        df['combined'] = df['combined'].replace({'_x000d_': ''}, regex=True)
+
     return df
 
 
-def add_dates(df):
+def add_dates(df, data_dir):
 
-    deaths = pd.read_csv(DATA_DIR + '20200423_extra_dod_dodx.txt')
-    deaths = deaths.merge(pd.read_csv(DATA_DIR + '20200429_cap_id_lookup.txt'), on='cp1random_id_5_char')
+    deaths = pd.read_csv(data_dir + '20200423_extra_dod_dodx.txt')
+    deaths = deaths.merge(pd.read_csv(data_dir + '20200429_cap_id_lookup.txt'), on='cp1random_id_5_char')
     df = df.merge(deaths, on='cp1id')
 
     df['cnr19datedeath'] = pd.to_datetime(df['cnr19datedeath'], dayfirst=True)
@@ -45,9 +48,9 @@ def add_dates(df):
     return df
 
 
-def add_reviewer_ids(df):
+def add_reviewer_ids(df, data_dir):
 
-    reviewers = pd.read_csv(DATA_DIR + '20191119_committee_reviews_nlp_code_update.csv')
+    reviewers = pd.read_csv(data_dir + '20191119_committee_reviews_nlp_code_update.csv')
     df = df.merge(reviewers, on='cp1id')
 
     return df

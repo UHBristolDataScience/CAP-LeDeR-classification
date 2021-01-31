@@ -6,7 +6,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import roc_curve, auc, roc_auc_score
 from sklearn.calibration import CalibratedClassifierCV, calibration_curve
-from sklearn.metrics import brier_score_loss, precision_score, recall_score, f1_score
+from sklearn.metrics import (brier_score_loss, precision_score, 
+                             recall_score, f1_score, confusion_matrix)
 from IPython.core.display import display, HTML
 
 import matplotlib.pyplot as plt
@@ -112,28 +113,30 @@ def calibrate_random_forest(x_train, y_train):
     return calibrated_random_forest
 
 
-def plot_roc_curve(clf, x_1, y_1, x_2, y_2, name_1, name_2, pos_label=2, ax=None):
+def plot_roc_curve(clf_dict, x, y, names, pos_label=2, ax=None, 
+                   fsa=14, save_name=None):
 
-    y_pred_1 = clf.predict_proba(x_1)[:, 1]
-    fpr_1, tpr_1, _ = roc_curve(y_1, y_pred_1, pos_label=pos_label)
+    for name in names:
+        clf = clf_dict[name]
+    
+        y_pred = clf.predict_proba(x[name])[:, 1]
+        fpr, tpr, _ = roc_curve(y[name], y_pred, pos_label=pos_label)
 
-    y_pred_2 = clf.predict_proba(x_2)[:, 1]
-    fpr_2, tpr_2, _ = roc_curve(y_2, y_pred_2, pos_label=pos_label)
 
-    if ax is None:
-        plt.figure(figsize=(7, 5))
-        ax = plt.gca()
+        if ax is None:
+            plt.figure(figsize=(7, 5))
+            ax = plt.gca()
 
-    ax.plot(fpr_1, tpr_1, label=name_1 + ', AUC=%.2f' % roc_auc_score(y_1, y_pred_1))
-    ax.plot(fpr_2, tpr_2, label=name_2 + ', AUC=%.2f' % roc_auc_score(y_2, y_pred_2))
+        ax.plot(fpr, tpr, label=name + ', AUC=%.2f' % roc_auc_score(y[name], y_pred))
+
 
     ax.legend()
-    ax.set_xlabel('FPR')
-    ax.set_ylabel('TPR')
+    ax.set_xlabel('FPR', fontsize=fsa)
+    ax.set_ylabel('TPR', fontsize=fsa)
     ax.plot([0, 1], [0, 1], 'k--')
 
-    if ax is None:
-        plt.savefig('ROC_train_test.png')
+    if save_name is not None:
+        plt.savefig(save_name, dpi=300)
 
 
 def plot_calibration_curve(clf, calibrated_clf,
@@ -240,31 +243,51 @@ def plot_calibration_curve_easy_hard(calibrated_clf,
         ax2.set_ylabel("Normalised Count")
         ax2.legend(loc="upper center", ncol=2)
 
+        plt.tight_layout()
         plt.savefig('calibration_rf_easy_hard_%d_bins.png' % bins)
 
 
-def compute_all_metrics(clf, x_1, y_1, x_2, y_2, name_1, name_2):
+def specificity_sensitivity(y_true, y_pred):
+
+    actual_pos = y_true == 2
+    actual_neg = y_true == 1
+    
+    true_pos = (y_pred == 2) & (actual_pos)
+    false_pos = (y_pred == 2) & (actual_neg)
+    true_neg = (y_pred == 1) & (actual_neg)
+    false_neg = (y_pred == 1) & (actual_pos)
+    
+    sensitivity = np.sum(true_pos) / np.sum(actual_pos)
+    specificity = np.sum(true_neg) / np.sum(actual_neg)
+    ratio = np.sum(false_pos) / np.sum(false_neg)
+
+    return sensitivity, specificity, ratio
+
+
+
+def compute_all_metrics(clf, x, y, names):
 
     results = pd.DataFrame()
-    results['metric'] = ['AUC', 'Accuracy', 'Precision', 'Recall', 'F1']
+    results['metric'] = ['AUC', 'Accuracy', 'Precision', 'Recall', 
+                         'F1', 'Sensitivity', 'Specificity', 'FP/FN ratio']
 
-    y_pred_1 = clf.predict_proba(x_1)[:, 1]
-    y_pred_2 = clf.predict_proba(x_2)[:, 1]
+    for name in names:
 
-    y_p_1 = clf.predict(x_1)
-    y_p_2 = clf.predict(x_2)
+        y_pred = clf.predict_proba(x[name])[:, 1]
+        y_p = clf.predict(x[name])
 
-    results[name_1] = [roc_auc_score(y_1, y_pred_1),
-                       accuracy(clf, x_1, y_1, name=None, print_flag=False),
-                       precision_score(y_1, y_p_1),
-                       recall_score(y_1, y_p_1),
-                       f1_score(y_1, y_p_1)]
 
-    results[name_2] = [roc_auc_score(y_2, y_pred_2),
-                       accuracy(clf, x_2, y_2, name=None, print_flag=False),
-                       precision_score(y_2, y_p_2),
-                       recall_score(y_2, y_p_2),
-                       f1_score(y_2, y_p_2)]
+        sensitivity, specificity, ratio = specificity_sensitivity(y[name], y_p)
+
+        results[name] = [roc_auc_score(y[name], y_pred),
+                         accuracy(clf, x[name], y[name], name=None, print_flag=False),
+                         precision_score(y[name], y_p, pos_label=2),
+                         recall_score(y[name], y_p, pos_label=2),
+                         f1_score(y[name], y_p, pos_label=2),
+                         sensitivity, 
+                         specificity, 
+                         ratio]
+
 
     return results
 
